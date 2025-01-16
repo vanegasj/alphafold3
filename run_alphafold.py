@@ -702,6 +702,12 @@ def main(_):
               ' https://developer.nvidia.com/cuda-gpus) the ENV XLA_FLAGS must'
               f' include "{required_flag}".'
           )
+        if _FLASH_ATTENTION_IMPLEMENTATION.value != 'xla':
+          raise ValueError(
+              'For devices with GPU compute capability 7.x (see'
+              ' https://developer.nvidia.com/cuda-gpus) the'
+              ' --flash_attention_implementation must be set to "xla".'
+          )
 
   notice = textwrap.wrap(
       'Running AlphaFold 3. Please note that standard AlphaFold 3 model'
