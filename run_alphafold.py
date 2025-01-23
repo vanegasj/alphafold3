@@ -407,7 +407,7 @@ def predict_structure(
       conformer_max_iterations=conformer_max_iterations,
   )
   print(
-      f'Featurising data for seeds {fold_input.rng_seeds} took '
+      f'Featurising data for seeds {fold_input.rng_seeds} took'
       f' {time.time() - featurisation_start_time:.2f} seconds.'
   )
   all_inference_start_time = time.time()
@@ -418,7 +418,7 @@ def predict_structure(
     rng_key = jax.random.PRNGKey(seed)
     result = model_runner.run_inference(example, rng_key)
     print(
-        f'Running model inference for seed {seed} took '
+        f'Running model inference for seed {seed} took'
         f' {time.time() - inference_start_time:.2f} seconds.'
     )
     print(f'Extracting output structures (one per sample) for seed {seed}...')
@@ -427,7 +427,7 @@ def predict_structure(
         batch=example, result=result, target_name=fold_input.name
     )
     print(
-        f'Extracting output structures (one per sample) for seed {seed} took '
+        f'Extracting output structures (one per sample) for seed {seed} took'
         f' {time.time() - extract_structures:.2f} seconds.'
     )
 
@@ -459,9 +459,9 @@ def write_fold_input_json(
 ) -> None:
   """Writes the input JSON to the output directory."""
   os.makedirs(output_dir, exist_ok=True)
-  with open(
-      os.path.join(output_dir, f'{fold_input.sanitised_name()}_data.json'), 'wt'
-  ) as f:
+  path = os.path.join(output_dir, f'{fold_input.sanitised_name()}_data.json')
+  print(f'Writing model input JSON to {path}')
+  with open(path, 'wt') as f:
     f.write(fold_input.to_json())
 
 
@@ -595,7 +595,7 @@ def process_fold_input(
         f'{output_dir}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}'
     )
     print(
-        f'Output directory {output_dir} exists and non-empty, using instead '
+        f'Output directory {output_dir} exists and is non-empty, using instead'
         f' {new_output_dir}.'
     )
     output_dir = new_output_dir
@@ -613,7 +613,6 @@ def process_fold_input(
     fold_input = pipeline.DataPipeline(data_pipeline_config).process(fold_input)
 
   print(f'Output directory: {output_dir}')
-  print(f'Writing model input JSON to {output_dir}')
   write_fold_input_json(fold_input, output_dir)
   if model_runner is None:
     print('Skipping inference...')
@@ -720,7 +719,7 @@ def main(_):
       break_on_hyphens=False,
       width=80,
   )
-  print('\n'.join(notice))
+  print('\n' + '\n'.join(notice) + '\n')
 
   if _RUN_DATA_PIPELINE.value:
     expand_path = lambda x: replace_db_dir(x, DB_DIR.value)
@@ -747,7 +746,6 @@ def main(_):
         max_template_date=max_template_date,
     )
   else:
-    print('Skipping running the data pipeline.')
     data_pipeline_config = None
 
   if _RUN_INFERENCE.value:
@@ -777,7 +775,6 @@ def main(_):
   print('Processing fold inputs.')
   num_fold_inputs = 0
   for fold_input in fold_inputs:
-    print(f'Processing fold input #{num_fold_inputs + 1}')
     if _NUM_SEEDS.value is not None:
       print(
           f'Expanding fold input {fold_input.name} to {_NUM_SEEDS.value} seeds'
