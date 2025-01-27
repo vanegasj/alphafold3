@@ -246,21 +246,38 @@ class ProteinChain:
     """Constructs ProteinChain from the AlphaFoldServer JSON dict."""
     _validate_keys(
         json_dict.keys(),
-        {'sequence', 'glycans', 'modifications', 'count'},
+        {
+            'sequence',
+            'glycans',
+            'modifications',
+            'count',
+            'maxTemplateDate',
+            'useStructureTemplate',
+        },
     )
     sequence = json_dict['sequence']
 
     if 'glycans' in json_dict:
       raise ValueError(
           f'Specifying glycans in the `{ALPHAFOLDSERVER_JSON_DIALECT}` format'
-          ' is not currently supported.'
+          ' is not supported.'
       )
+
+    if 'maxTemplateDate' in json_dict:
+      raise ValueError(
+          f'Specifying maxTemplateDate in the `{ALPHAFOLDSERVER_JSON_DIALECT}`'
+          ' format is not supported, use the --max_template_date flag instead.'
+      )
+
+    templates = None  # Search for templates unless explicitly disabled.
+    if not json_dict.get('useStructureTemplate', True):
+      templates = []  # Do not use any templates.
 
     ptms = [
         (mod['ptmType'].removeprefix('CCD_'), mod['ptmPosition'])
         for mod in json_dict.get('modifications', [])
     ]
-    return cls(id=seq_id, sequence=sequence, ptms=ptms)
+    return cls(id=seq_id, sequence=sequence, ptms=ptms, templates=templates)
 
   @classmethod
   def from_dict(
