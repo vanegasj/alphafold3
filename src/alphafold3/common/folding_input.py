@@ -773,7 +773,7 @@ def _sample_rng_seed() -> int:
   return random.randint(0, 2**32 - 1)
 
 
-def _validate_user_ccd_keys(keys: Sequence[str]) -> None:
+def _validate_user_ccd_keys(keys: Sequence[str], component_name: str) -> None:
   """Validates the keys of the user-defined CCD dictionary."""
   mandatory_keys = (
       '_chem_comp.id',
@@ -796,7 +796,10 @@ def _validate_user_ccd_keys(keys: Sequence[str]) -> None:
       '_chem_comp_bond.pdbx_aromatic_flag',
   )
   if missing_keys := set(mandatory_keys) - set(keys):
-    raise ValueError(f'User-defined CCD is missing these keys: {missing_keys}')
+    raise ValueError(
+        f'Component {component_name} in the user-defined CCD is missing these'
+        f' keys: {missing_keys}'
+    )
 
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
@@ -852,8 +855,12 @@ class Input:
       object.__setattr__(
           self, 'bonded_atom_pairs', tuple(self.bonded_atom_pairs)
       )
+
     if self.user_ccd is not None:
-      _validate_user_ccd_keys(cif_dict.from_string(self.user_ccd).keys())
+      for component_name, component_cif in cif_dict.parse_multi_data_cif(
+          self.user_ccd
+      ).items():
+        _validate_user_ccd_keys(component_cif.keys(), component_name)
 
   @property
   def protein_chains(self) -> Sequence[ProteinChain]:
