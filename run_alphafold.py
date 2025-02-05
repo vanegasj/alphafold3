@@ -631,7 +631,7 @@ def process_fold_input(
     )
     output = all_inference_results
 
-  print(f'Fold job {fold_input.name} done.\n')
+  print(f'Fold job {fold_input.name} done, output written to {output_dir}\n')
   return output
 
 
