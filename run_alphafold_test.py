@@ -211,7 +211,7 @@ class InferenceTest(test_utils.StructureTestCase):
         featurised_example, jax.random.PRNGKey(0)
     )
     result_hashes = jax.tree_util.tree_map(_hash_data, result)
-    self.assertIsNotNone(inference_result)
+    self.assertIsNotNone(result)
     _, embeddings = self._runner.extract_inference_results_and_maybe_embeddings(
         batch=featurised_example, result=result, target_name='target'
     )
