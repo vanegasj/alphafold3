@@ -207,12 +207,14 @@ class InferenceTest(test_utils.StructureTestCase):
 
     self.assertLen(featurised_examples, 1)
     featurised_example = featurised_examples[0]
-    inference_result = self._runner.run_inference(
+    result = self._runner.run_inference(
         featurised_example, jax.random.PRNGKey(0)
     )
-    inference_result = jax.tree_util.tree_map(_hash_data, inference_result)
+    result_hashes = jax.tree_util.tree_map(_hash_data, result)
     self.assertIsNotNone(inference_result)
-    embeddings = self._runner.extract_embeddings(result=inference_result)
+    _, embeddings = self._runner.extract_inference_results_and_maybe_embeddings(
+        batch=featurised_example, result=result, target_name='target'
+    )
     self.assertLen(embeddings, 2)
 
   def test_process_fold_input_runs_only_inference(self):
@@ -296,10 +298,12 @@ class InferenceTest(test_utils.StructureTestCase):
       self.assertSameElements(
           embeddings.keys(), ['single_embeddings', 'pair_embeddings']
       )
-      self.assertEqual(embeddings['single_embeddings'].ndim, 2)
-      self.assertEqual(embeddings['single_embeddings'].shape[-1], 384)
-      self.assertEqual(embeddings['pair_embeddings'].ndim, 3)
-      self.assertEqual(embeddings['pair_embeddings'].shape[-1], 128)
+      # Ligand 7BU has 41 tokens.
+      num_tokens = len(fold_input.protein_chains[0].sequence) + 41
+      self.assertEqual(embeddings['single_embeddings'].shape, (num_tokens, 384))
+      self.assertEqual(
+          embeddings['pair_embeddings'].shape, (num_tokens, num_tokens, 128)
+      )
 
     with open(os.path.join(output_dir, expected_data_json_filename), 'rt') as f:
       actual_input_json = json.load(f)
