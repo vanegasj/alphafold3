@@ -12,6 +12,7 @@
 
 import contextlib
 import csv
+import dataclasses
 import datetime
 import difflib
 import json
@@ -178,17 +179,20 @@ class InferenceTest(test_utils.StructureTestCase):
       {
           'testcase_name': 'default_bucket',
           'bucket': None,
+          'seed': 1,
       },
       {
           'testcase_name': 'bucket_1024',
           'bucket': 1024,
+          'seed': 42,
       },
   )
-  def test_inference(self, bucket):
+  def test_inference(self, bucket, seed):
     """Run AlphaFold 3 inference."""
 
-    ### Prepare inputs.
+    ### Prepare inputs with modified seed.
     fold_input = folding_input.Input.from_json(self._test_input_json)
+    fold_input = dataclasses.replace(fold_input, rng_seeds=[seed])
 
     output_dir = self.create_tempdir().full_path
     actual = run_alphafold.process_fold_input(
@@ -212,16 +216,17 @@ class InferenceTest(test_utils.StructureTestCase):
     )
     expected_data_json_filename = f'{fold_input.sanitised_name()}_data.json'
 
+    prefix = f'seed-{seed}'
     self.assertSameElements(
         os.listdir(output_dir),
         [
             # Subdirectories, one for each sample and one for embeddings.
-            'seed-1234_sample-0',
-            'seed-1234_sample-1',
-            'seed-1234_sample-2',
-            'seed-1234_sample-3',
-            'seed-1234_sample-4',
-            'seed-1234_embeddings',
+            f'{prefix}_sample-0',
+            f'{prefix}_sample-1',
+            f'{prefix}_sample-2',
+            f'{prefix}_sample-3',
+            f'{prefix}_sample-4',
+            f'{prefix}_embeddings',
             # Top ranking result.
             expected_confidences_filename,
             expected_model_cif_filename,
@@ -234,7 +239,7 @@ class InferenceTest(test_utils.StructureTestCase):
             'TERMS_OF_USE.md',
         ],
     )
-    embeddings_dir = os.path.join(output_dir, 'seed-1234_embeddings')
+    embeddings_dir = os.path.join(output_dir, f'{prefix}_embeddings')
     self.assertSameElements(os.listdir(embeddings_dir), ['embeddings.npz'])
 
     with open(os.path.join(embeddings_dir, 'embeddings.npz'), 'rb') as f:
@@ -274,7 +279,7 @@ class InferenceTest(test_utils.StructureTestCase):
       ranking_scores = list(csv.DictReader(f))
 
     self.assertLen(ranking_scores, 5)
-    self.assertEqual([int(s['seed']) for s in ranking_scores], [1234] * 5)
+    self.assertEqual([int(s['seed']) for s in ranking_scores], [seed] * 5)
     self.assertEqual(
         [int(s['sample']) for s in ranking_scores], [0, 1, 2, 3, 4]
     )
@@ -321,6 +326,10 @@ class InferenceTest(test_utils.StructureTestCase):
         run_alphafold.ResultsForSeed(**expected_inf)
         for expected_inf in expected_dict
     ]
+
+    actual_rmsds = []
+    mask_proportions = []
+    actual_masked_rmsds = []
     for actual_inf, expected_inf in zip(actual, expected, strict=True):
       for actual_inf, expected_inf in zip(
           actual_inf.inference_results,
@@ -337,14 +346,35 @@ class InferenceTest(test_utils.StructureTestCase):
             actual_inf.predicted_structure.atom_occupancy,
             [1.0] * actual_inf.predicted_structure.num_atoms,
         )
-        # Check RMSD is within tolerance.
-        # 5tgy is stably predicted, samples should be all within 3.0 RMSD
-        # regardless of bucket, device type, etc.
-        actual_rmsd = alignment.rmsd_from_coords(
-            actual_inf.predicted_structure.coords,
-            expected_inf.predicted_structure.coords,
+        actual_rmsds.append(
+            alignment.rmsd_from_coords(
+                decoy_coords=actual_inf.predicted_structure.coords,
+                gt_coords=expected_inf.predicted_structure.coords,
+            )
         )
-        self.assertLess(actual_rmsd, 3.0)
+        # Mask out atoms with b_factor < 80.0 (i.e. lower confidence regions).
+        mask = actual_inf.predicted_structure.atom_b_factor > 80.0
+        mask_proportions.append(
+            np.sum(mask) / actual_inf.predicted_structure.num_atoms
+        )
+        actual_masked_rmsds.append(
+            alignment.rmsd_from_coords(
+                decoy_coords=actual_inf.predicted_structure.coords,
+                gt_coords=expected_inf.predicted_structure.coords,
+                include_idxs=mask,
+            )
+        )
+    # 5tgy is stably predicted, samples should be all within 3.0 RMSD
+    # regardless of seed, bucket, device type, etc.
+    if any(rmsd > 3.0 for rmsd in actual_rmsds):
+      self.fail(f'Full RMSD too high: {actual_rmsds=}')
+    # Check proportion of atoms with b_factor > 80 is at least 70%.
+    if any(prop < 0.7 for prop in mask_proportions):
+      self.fail(f'Too many residues with low pLDDT: {mask_proportions=}')
+    # Check masked RMSD is within tolerance (lower than full RMSD due to masking
+    # of lower confidence regions).
+    if any(rmsd > 1.4 for rmsd in actual_masked_rmsds):
+      self.fail(f'Masked RMSD too high: {actual_masked_rmsds=}')
 
 
 if __name__ == '__main__':
