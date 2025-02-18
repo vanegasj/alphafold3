@@ -141,8 +141,11 @@ class InferenceTest(test_utils.StructureTestCase):
         'version': folding_input.JSON_VERSION,
     }
     self._test_input_json = json.dumps(test_input)
+    self._model_config = run_alphafold.make_model_config(
+        return_embeddings=True, flash_attention_implementation='triton'
+    )
     self._runner = run_alphafold.ModelRunner(
-        config=run_alphafold.make_model_config(return_embeddings=True),
+        config=self._model_config,
         device=jax.local_devices()[0],
         model_dir=pathlib.Path(run_alphafold.MODEL_DIR.value),
     )
@@ -199,7 +202,7 @@ class InferenceTest(test_utils.StructureTestCase):
         fold_input,
         self._data_pipeline_config,
         run_alphafold.ModelRunner(
-            config=run_alphafold.make_model_config(return_embeddings=True),
+            config=self._model_config,
             device=jax.local_devices(backend='gpu')[0],
             model_dir=pathlib.Path(run_alphafold.MODEL_DIR.value),
         ),
