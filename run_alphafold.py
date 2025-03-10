@@ -496,7 +496,9 @@ def write_outputs(
       sample_dir = os.path.join(output_dir, f'seed-{seed}_sample-{sample_idx}')
       os.makedirs(sample_dir, exist_ok=True)
       post_processing.write_output(
-          inference_result=result, output_dir=sample_dir
+          inference_result=result,
+          output_dir=sample_dir,
+          name=f'{job_name}_seed-{seed}_sample-{sample_idx}',
       )
       ranking_score = float(result.metadata['ranking_score'])
       ranking_scores.append((seed, sample_idx, ranking_score))
@@ -508,7 +510,9 @@ def write_outputs(
       embeddings_dir = os.path.join(output_dir, f'seed-{seed}_embeddings')
       os.makedirs(embeddings_dir, exist_ok=True)
       post_processing.write_embeddings(
-          embeddings=embeddings, output_dir=embeddings_dir
+          embeddings=embeddings,
+          output_dir=embeddings_dir,
+          name=f'{job_name}_seed-{seed}',
       )
 
   if max_ranking_result is not None:  # True iff ranking_scores non-empty.
@@ -521,7 +525,9 @@ def write_outputs(
     )
     # Save csv of ranking scores with seeds and sample indices, to allow easier
     # comparison of ranking scores across different runs.
-    with open(os.path.join(output_dir, 'ranking_scores.csv'), 'wt') as f:
+    with open(
+        os.path.join(output_dir, f'{job_name}_ranking_scores.csv'), 'wt'
+    ) as f:
       writer = csv.writer(f)
       writer.writerow(['seed', 'sample', 'ranking_score'])
       writer.writerows(ranking_scores)
