@@ -55,8 +55,8 @@ import numpy as np
 
 
 _HOME_DIR = pathlib.Path(os.environ.get('HOME'))
-_DEFAULT_MODEL_DIR = _HOME_DIR / 'models'
-_DEFAULT_DB_DIR = _HOME_DIR / 'public_databases'
+_DEFAULT_MODEL_DIR = pathlib.Path('/nvme/alphafold3_db')
+_DEFAULT_DB_DIR = pathlib.Path('/nvme/alphafold3_db')
 
 
 # Input and output paths.
