@@ -280,11 +280,11 @@ class InferenceTest(test_utils.StructureTestCase):
       # Ligand 7BU has 41 tokens.
       num_tokens = len(fold_input.protein_chains[0].sequence) + 41
       self.assertEqual(embeddings['single_embeddings'].shape, (num_tokens, 384))
-      self.assertEqual(embeddings['single_embeddings'].dtype, np.float32)
+      self.assertEqual(embeddings['single_embeddings'].dtype, np.float16)
       self.assertEqual(
           embeddings['pair_embeddings'].shape, (num_tokens, num_tokens, 128)
       )
-      self.assertEqual(embeddings['pair_embeddings'].dtype, np.float32)
+      self.assertEqual(embeddings['pair_embeddings'].dtype, np.float16)
 
     distogram_dir = os.path.join(output_dir, f'{prefix}_distogram')
     distogram_filename = f'{fold_input.sanitised_name()}_{prefix}_distogram.npz'

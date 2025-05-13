@@ -382,11 +382,13 @@ class ModelRunner:
     """Extracts embeddings from model outputs."""
     embeddings = {}
     if 'single_embeddings' in result:
-      embeddings['single_embeddings'] = result['single_embeddings'][:num_tokens]
+      embeddings['single_embeddings'] = result['single_embeddings'][
+          :num_tokens
+      ].astype(np.float16)
     if 'pair_embeddings' in result:
       embeddings['pair_embeddings'] = result['pair_embeddings'][
           :num_tokens, :num_tokens
-      ]
+      ].astype(np.float16)
     return embeddings or None
 
   def extract_distogram(

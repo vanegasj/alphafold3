@@ -24,7 +24,7 @@ The following structure is used within the output directory:
     Numpy zip file contains 2 keys: `single_embeddings` and `pair_embeddings`.
     The embeddings can be large, their shapes are `(num_tokens, 384)` for
     `single_embeddings`, and `(num_tokens, num_tokens, 128)` for
-    `pair_embeddings`. Their dtype is `np.float32` (almost 12 GiB for a
+    `pair_embeddings`. Their dtype is `np.float16` (almost 6 GiB for a
     5,000-token input). Only saved if AlphaFold 3 is run with
     `--save_embeddings=true`.
 *   Top-ranking prediction mmCIF: `<job_name>_model.cif`. This file contains the
