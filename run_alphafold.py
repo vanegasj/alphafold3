@@ -272,13 +272,15 @@ _NUM_SEEDS = flags.DEFINE_integer(
 _SAVE_EMBEDDINGS = flags.DEFINE_bool(
     'save_embeddings',
     False,
-    'Whether to save the final trunk single and pair embeddings in the output.',
+    'Whether to save the final trunk single and pair embeddings in the output.'
+    ' Note that the embeddings are large float16 arrays: num_tokens * 384'
+    ' + num_tokens * num_tokens * 128.',
 )
 _SAVE_DISTOGRAM = flags.DEFINE_bool(
     'save_distogram',
     False,
-    'Whether to save the final distogram in the output. Note that the distoram '
-    'large: num_tokens * num_tokens * 39.',
+    'Whether to save the final distogram in the output. Note that the distogram'
+    ' is a large float16 array: num_tokens * num_tokens * 64.',
 )
 _FORCE_OUTPUT_DIR = flags.DEFINE_bool(
     'force_output_dir',
