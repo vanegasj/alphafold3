@@ -274,6 +274,12 @@ _SAVE_EMBEDDINGS = flags.DEFINE_bool(
     False,
     'Whether to save the final trunk single and pair embeddings in the output.',
 )
+_SAVE_DISTOGRAM = flags.DEFINE_bool(
+    'save_distogram',
+    False,
+    'Whether to save the final distogram in the output. Note that the distoram '
+    'large: num_tokens * num_tokens * 39.',
+)
 _FORCE_OUTPUT_DIR = flags.DEFINE_bool(
     'force_output_dir',
     False,
@@ -289,6 +295,7 @@ def make_model_config(
     num_diffusion_samples: int = 5,
     num_recycles: int = 10,
     return_embeddings: bool = False,
+    return_distogram: bool = False,
 ) -> model.Model.Config:
   """Returns a model config with some defaults overridden."""
   config = model.Model.Config()
@@ -298,6 +305,7 @@ def make_model_config(
   config.heads.diffusion.eval.num_samples = num_diffusion_samples
   config.num_recycles = num_recycles
   config.return_embeddings = return_embeddings
+  config.return_distogram = return_distogram
   return config
 
 
@@ -355,19 +363,23 @@ class ModelRunner:
     result['__identifier__'] = identifier
     return result
 
-  def extract_inference_results_and_maybe_embeddings(
+  def extract_inference_results(
       self,
       batch: features.BatchDict,
       result: model.ModelResult,
       target_name: str,
-  ) -> tuple[list[model.InferenceResult], dict[str, np.ndarray] | None]:
-    """Extracts inference results and embeddings (if set) from model outputs."""
-    inference_results = list(
+  ) -> list[model.InferenceResult]:
+    """Extracts inference results from model outputs."""
+    return list(
         model.Model.get_inference_result(
             batch=batch, result=result, target_name=target_name
         )
     )
-    num_tokens = len(inference_results[0].metadata['token_chain_ids'])
+
+  def extract_embeddings(
+      self, result: model.ModelResult, num_tokens: int
+  ) -> dict[str, np.ndarray] | None:
+    """Extracts embeddings from model outputs."""
     embeddings = {}
     if 'single_embeddings' in result:
       embeddings['single_embeddings'] = result['single_embeddings'][:num_tokens]
@@ -375,7 +387,16 @@ class ModelRunner:
       embeddings['pair_embeddings'] = result['pair_embeddings'][
           :num_tokens, :num_tokens
       ]
-    return inference_results, embeddings or None
+    return embeddings or None
+
+  def extract_distogram(
+      self, result: model.ModelResult, num_tokens: int
+  ) -> np.ndarray | None:
+    """Extracts distogram from model outputs."""
+    if 'distogram' not in result['distogram']:
+      return None
+    distogram = result['distogram']['distogram'][:num_tokens, :num_tokens, :]
+    return distogram
 
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
@@ -388,12 +409,14 @@ class ResultsForSeed:
     full_fold_input: The fold input that must also include the results of
       running the data pipeline - MSA and templates.
     embeddings: The final trunk single and pair embeddings, if requested.
+    distogram: The token distance histogram, if requested.
   """
 
   seed: int
   inference_results: Sequence[model.InferenceResult]
   full_fold_input: folding_input.Input
   embeddings: dict[str, np.ndarray] | None = None
+  distogram: np.ndarray | None = None
 
 
 def predict_structure(
@@ -437,10 +460,15 @@ def predict_structure(
     )
     print(f'Extracting inference results with seed {seed}...')
     extract_structures = time.time()
-    inference_results, embeddings = (
-        model_runner.extract_inference_results_and_maybe_embeddings(
-            batch=example, result=result, target_name=fold_input.name
-        )
+    inference_results = model_runner.extract_inference_results(
+        batch=example, result=result, target_name=fold_input.name
+    )
+    num_tokens = len(inference_results[0].metadata['token_chain_ids'])
+    embeddings = model_runner.extract_embeddings(
+        result=result, num_tokens=num_tokens
+    )
+    distogram = model_runner.extract_distogram(
+        result=result, num_tokens=num_tokens
     )
     print(
         f'Extracting {len(inference_results)} inference samples with'
@@ -453,6 +481,7 @@ def predict_structure(
             inference_results=inference_results,
             full_fold_input=fold_input,
             embeddings=embeddings,
+            distogram=distogram,
         )
     )
   print(
@@ -514,6 +543,15 @@ def write_outputs(
           output_dir=embeddings_dir,
           name=f'{job_name}_seed-{seed}',
       )
+
+    if (distogram := results_for_seed.distogram) is not None:
+      distogram_dir = os.path.join(output_dir, f'seed-{seed}_distogram')
+      os.makedirs(distogram_dir, exist_ok=True)
+      distogram_path = os.path.join(
+          distogram_dir, f'{job_name}_seed-{seed}_distogram.npz'
+      )
+      with open(distogram_path, 'wb') as f:
+        np.savez_compressed(f, distogram=distogram.astype(np.float16))
 
   if max_ranking_result is not None:  # True iff ranking_scores non-empty.
     post_processing.write_output(
@@ -794,6 +832,7 @@ def main(_):
             num_diffusion_samples=_NUM_DIFFUSION_SAMPLES.value,
             num_recycles=_NUM_RECYCLES.value,
             return_embeddings=_SAVE_EMBEDDINGS.value,
+            return_distogram=_SAVE_DISTOGRAM.value,
         ),
         device=devices[_GPU_DEVICE.value],
         model_dir=pathlib.Path(MODEL_DIR.value),
