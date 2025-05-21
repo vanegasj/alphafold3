@@ -508,9 +508,6 @@ class MSA:
       msa_features = unpaired_msa.featurize()
       all_seqs_msa_features = paired_msa.featurize()
 
-      msa_features = data3.fix_features(msa_features)
-      all_seqs_msa_features = data3.fix_features(all_seqs_msa_features)
-
       msa_features = msa_features | {
           f'{k}_all_seq': v for k, v in all_seqs_msa_features.items()
       }
