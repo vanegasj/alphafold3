@@ -531,6 +531,8 @@ def get_random_conformer(
   """Stochastic conformer search method using V3 ETK."""
   params = rd_all_chem.ETKDGv3()
   params.randomSeed = random_seed
+  params.useRandomCoords = True
+  params.enforceChirality = True
   if max_iterations is not None:  # Override default value.
     params.maxIterations = max_iterations
   mol_copy = rd_chem.Mol(mol)
